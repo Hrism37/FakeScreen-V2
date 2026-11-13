@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FakeScreen</string>
+    <string name="channel_session">模拟息屏会话</string>
+    <string name="channel_session_desc">显示正在进行的模拟息屏会话通知</string>
+    <string name="channel_alerts">恢复与安全提醒</string>
+    <string name="channel_alerts_desc">亮度恢复、异常退出等提醒</string>
+</resources>

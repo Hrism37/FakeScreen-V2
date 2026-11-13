@@ -1,0 +1,18 @@
+# Gradle / Android
+.gradle/
+build/
+/local.properties
+/captures/
+.externalNativeBuild/
+.cxx/
+*.iml
+.idea/
+
+# Signing material – never commit
+keystore.properties
+*.keystore
+*.jks
+
+# OS / editor
+.DS_Store
+*.swp
