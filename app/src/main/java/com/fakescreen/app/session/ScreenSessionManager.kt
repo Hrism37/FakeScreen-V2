@@ -41,7 +41,7 @@ class ScreenSessionManager(
 
     enum class StopReason {
         PIN,
-        EMERGENCY,
+        VOLUME_SHORTCUT,
         TIMEOUT,
         OVERLAY_LOST,
         SERVICE_COMMAND,
@@ -58,6 +58,7 @@ class ScreenSessionManager(
     private var stopping = false
     private var started = false
     private var privacyLockRunning = false
+    private var volumeShortcutEnabled = true
 
     fun isActive(): Boolean = started && record != null
 
@@ -75,14 +76,22 @@ class ScreenSessionManager(
 
         val settings = container.settingsRepository.settings.first()
         val pinLength = container.passwordManager.pinLength()
+        volumeShortcutEnabled = settings.allowVolumeKeyShortcut
         val snapshot = container.brightnessManager.readSnapshot()
 
+        var actualMode = mode
+        var downgraded = false
+        if (mode == ScreenMode.TRUE_OFF && !container.shizukuManager.isReady()) {
+            actualMode = ScreenMode.PURE_BLACK
+            downgraded = true
+        }
+
         var newRecord = SessionRecord.newSession(
-            mode = mode,
+            mode = actualMode,
             originalBrightness = snapshot.raw,
             originalBrightnessMode = snapshot.mode,
         )
-        if (mode == ScreenMode.DIM) {
+        if (actualMode == ScreenMode.DIM) {
             newRecord = newRecord.copy(
                 appliedWindowBrightness = BrightnessManager.WINDOW_MIN_BRIGHTNESS
             )
@@ -99,8 +108,17 @@ class ScreenSessionManager(
             pinState = pinState,
             onSubmit = { pin -> submitPin(pin) },
             windowBrightness = newRecord.appliedWindowBrightness,
-            keepScreenOn = true,
+            keepScreenOn = actualMode != ScreenMode.TRUE_OFF,
             onOverlayLost = { onOverlayLost() },
+            onVolumeShortcut = { maybeVolumeStop() },
+            onPinVisibilityChanged = { visible ->
+                if (actualMode == ScreenMode.DIM) {
+                    overlay.updateBrightness(
+                        if (visible) OverlayManager.READABLE_WINDOW_BRIGHTNESS
+                        else BrightnessManager.WINDOW_MIN_BRIGHTNESS
+                    )
+                }
+            },
         )
         if (!shown) {
             cleanupOnDestroy()
@@ -109,13 +127,41 @@ class ScreenSessionManager(
         }
 
         keepAwake.start(settings.experimentalAudioKeepAwake)
-        if (mode == ScreenMode.DIM) {
+        if (actualMode == ScreenMode.DIM) {
             applyOptionalGlobalBrightness(newRecord, snapshot, settings)
         }
 
         record?.let { container.sessionState.setActive(it) }
         scheduleAutoStop(settings.maxSessionMinutes)
-        AppLog.i("Session started id=${newRecord.id} mode=$mode")
+
+        if (downgraded) {
+            NotificationHelper.notifyAlert(
+                service,
+                "Shizuku 未就绪",
+                "无法使用真熄屏模式，已自动降级为纯黑覆盖。",
+            )
+        }
+        if (actualMode == ScreenMode.TRUE_OFF) {
+            // Give the overlay one frame to appear before switching the panel off.
+            delay(350L)
+            val screenOff = container.shizukuManager.turnScreenOff()
+            if (!screenOff) {
+                val fallback = record?.copy(mode = ScreenMode.PURE_BLACK)
+                if (fallback != null) {
+                    container.sessionStore.save(fallback)
+                    record = fallback
+                    overlay.setKeepScreenOn(true)
+                    overlay.updateBrightness(null)
+                    container.sessionState.setActive(fallback)
+                }
+                NotificationHelper.notifyAlert(
+                    service,
+                    "真熄屏失败",
+                    "Shizuku 无法关闭屏幕，已自动降级为纯黑覆盖。",
+                )
+            }
+        }
+        AppLog.i("Session started id=${newRecord.id} mode=$actualMode")
         return true
     }
 
@@ -143,8 +189,17 @@ class ScreenSessionManager(
             pinState = pinState,
             onSubmit = { pin -> submitPin(pin) },
             windowBrightness = saved.appliedWindowBrightness,
-            keepScreenOn = true,
+            keepScreenOn = saved.mode != ScreenMode.TRUE_OFF,
             onOverlayLost = { onOverlayLost() },
+            onVolumeShortcut = { maybeVolumeStop() },
+            onPinVisibilityChanged = { visible ->
+                if (saved.mode == ScreenMode.DIM) {
+                    overlay.updateBrightness(
+                        if (visible) OverlayManager.READABLE_WINDOW_BRIGHTNESS
+                        else BrightnessManager.WINDOW_MIN_BRIGHTNESS
+                    )
+                }
+            },
         )
         if (!shown) {
             restoreIfPossible(saved)
@@ -275,6 +330,11 @@ class ScreenSessionManager(
         AppLog.i("Session stopped: $reason")
         stopping = false
         service.stopSelf()
+    }
+
+    private fun maybeVolumeStop() {
+        if (!started || stopping || !volumeShortcutEnabled) return
+        scope.launch { stop(StopReason.VOLUME_SHORTCUT) }
     }
 
     /** Called by [OverlayManager] when the window was removed by the system. */

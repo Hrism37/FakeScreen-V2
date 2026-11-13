@@ -64,7 +64,7 @@ fun ModeSelectScreen(
             TopBar(title = "默认模式", onBack = onBack)
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Text(
-                    text = "选择模拟息屏的显示方式。修改只影响下一次会话。",
+                    text = "选择模拟息屏的显示方式。修改只影响下一次会话。纯黑模式进入后只有黑屏，轻触才会显示 PIN 键盘。",
                     color = TextSecondary,
                     fontSize = 13.sp,
                     lineHeight = 19.sp,
@@ -95,10 +95,23 @@ fun ModeSelectScreen(
                     selected = current == ScreenMode.DIM,
                     onClick = { onSelect(ScreenMode.DIM) },
                 )
+                Spacer(Modifier.height(14.dp))
+                ModeCard(
+                    mode = ScreenMode.TRUE_OFF,
+                    tag = "SHIZUKU",
+                    description = "通过 Shizuku 的 shell 用户服务执行系统电源键，让屏幕真正熄灭，而不是画一层黑色。",
+                    bullets = listOf(
+                        "需要 Shizuku 已安装、运行并授权",
+                        "熄屏后按电源键唤醒，设备锁屏仍由系统管理",
+                        "Shizuku 不可用时自动降级为纯黑覆盖",
+                    ),
+                    selected = current == ScreenMode.TRUE_OFF,
+                    onClick = { onSelect(ScreenMode.TRUE_OFF) },
+                )
                 Spacer(Modifier.height(18.dp))
                 SectionCard {
                     Text(
-                        text = "亮度最低值不会设为 0。窗口级亮度使用 1%，系统级亮度最低为 4/255，避免屏幕进入无法恢复的状态。",
+                        text = "亮度最低值不会设为 0。窗口级亮度使用 1%，系统级亮度最低为 4/255，避免屏幕进入无法恢复的状态。真熄屏模式不修改亮度。",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 18.sp,

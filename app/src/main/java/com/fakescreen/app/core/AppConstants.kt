@@ -16,8 +16,7 @@ object AppConstants {
 
     const val ACTION_START_SESSION = "com.fakescreen.app.action.START_SESSION"
     const val ACTION_STOP_SESSION = "com.fakescreen.app.action.STOP_SESSION"
-    const val ACTION_EMERGENCY_STOP = "com.fakescreen.app.action.EMERGENCY_STOP"
-    const val ACTION_EMERGENCY_FROM_NOTIFICATION = "com.fakescreen.app.action.EMERGENCY_FROM_NOTIFICATION"
+    const val ACTION_VOLUME_TOGGLE = "com.fakescreen.app.action.VOLUME_TOGGLE"
     const val EXTRA_MODE = "extra_mode"
 
     const val SHIZUKU_REQUEST_CODE = 4103

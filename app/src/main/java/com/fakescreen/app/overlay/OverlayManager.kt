@@ -22,6 +22,7 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.fakescreen.app.core.AppLog
+import com.fakescreen.app.core.VolumeComboDetector
 import com.fakescreen.app.ui.theme.FakeScreenTheme
 import kotlinx.coroutines.flow.StateFlow
 
@@ -48,6 +49,7 @@ class OverlayManager(private val context: Context) {
     private var displayListener: DisplayManager.DisplayListener? = null
     private var hiding = false
     private var lostReported = false
+    private val volumeDetector = VolumeComboDetector()
 
     var isShowing: Boolean = false
         private set
@@ -58,6 +60,8 @@ class OverlayManager(private val context: Context) {
         windowBrightness: Float?,
         keepScreenOn: Boolean,
         onOverlayLost: () -> Unit,
+        onPinVisibilityChanged: (Boolean) -> Unit = {},
+        onVolumeShortcut: () -> Unit = {},
     ): Boolean {
         if (isShowing) return true
         if (!Settings.canDrawOverlays(appContext)) {
@@ -83,11 +87,35 @@ class OverlayManager(private val context: Context) {
             setContent {
                 FakeScreenTheme {
                     val state by pinState.collectAsStateWithLifecycle()
-                    OverlayScreen(state = state, onSubmit = onSubmit)
+                    OverlayScreen(
+                        state = state,
+                        onSubmit = onSubmit,
+                        onRevealChanged = onPinVisibilityChanged,
+                    )
                 }
             }
-            setOnKeyListener { _, keyCode, _ ->
-                keyCode == KeyEvent.KEYCODE_BACK
+            setOnKeyListener { _, keyCode, event ->
+                when (keyCode) {
+                    KeyEvent.KEYCODE_BACK -> true
+                    KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                        if (event.repeatCount > 0) {
+                            false
+                        } else {
+                            val triggered = volumeDetector.onKey(
+                                keyCode = keyCode,
+                                action = event.action,
+                                now = event.eventTime,
+                            )
+                            if (triggered) {
+                                onVolumeShortcut()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    }
+                    else -> false
+                }
             }
             addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) {
@@ -233,5 +261,7 @@ class OverlayManager(private val context: Context) {
 
     companion object {
         const val BRIGHTNESS_NONE = -1f
+        /** Window brightness while the PIN pad is visible in the dim mode. */
+        const val READABLE_WINDOW_BRIGHTNESS = 0.35f
     }
 }

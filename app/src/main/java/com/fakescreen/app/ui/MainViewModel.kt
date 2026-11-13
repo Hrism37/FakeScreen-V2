@@ -131,6 +131,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setAllowVolumeKeyShortcut(enabled: Boolean) {
+        viewModelScope.launch {
+            container.settingsRepository.setAllowVolumeKeyShortcut(enabled)
+            refreshReport()
+        }
+    }
+
+    fun openAccessibilitySettings() {
+        container.deviceCompatibility.openAccessibilitySettings()
+    }
+
     fun setPin(pin: String, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             val ok = try {

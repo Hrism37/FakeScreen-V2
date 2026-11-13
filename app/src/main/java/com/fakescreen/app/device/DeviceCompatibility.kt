@@ -1,6 +1,7 @@
 package com.fakescreen.app.device
 
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -9,6 +10,7 @@ import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import com.fakescreen.app.core.AppSettings
 import com.fakescreen.app.core.AppLog
+import com.fakescreen.app.service.VolumeKeyAccessibilityService
 import java.util.Locale
 
 /**
@@ -39,6 +41,7 @@ class DeviceCompatibility(private val context: Context) {
         val writeSettingsGranted: Boolean,
         val notificationsEnabled: Boolean,
         val batteryOptimizationIgnored: Boolean,
+        val volumeAccessibilityEnabled: Boolean,
         val isHonor: Boolean,
     )
 
@@ -70,6 +73,7 @@ class DeviceCompatibility(private val context: Context) {
             writeSettingsGranted = Settings.System.canWrite(context),
             notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled(),
             batteryOptimizationIgnored = ignored,
+            volumeAccessibilityEnabled = isVolumeKeyServiceEnabled(),
             isHonor = isHonorDevice(),
         )
     }
@@ -110,6 +114,7 @@ class DeviceCompatibility(private val context: Context) {
             appendLine("修改系统设置（亮度）：${granted(info.writeSettingsGranted)}")
             appendLine("通知权限：${granted(info.notificationsEnabled)}")
             appendLine("已忽略电池优化：${granted(info.batteryOptimizationIgnored)}")
+            appendLine("音量键无障碍服务：${granted(info.volumeAccessibilityEnabled)}")
             appendLine("Shizuku：$shizukuStatus")
             appendLine("PIN：${if (pinConfigured) "已设置" else "未设置"}")
             appendLine("当前会话：${if (sessionActive) "运行中" else "无"}")
@@ -127,6 +132,29 @@ class DeviceCompatibility(private val context: Context) {
             appendLine("· FLAG_KEEP_SCREEN_ON 会让屏幕保持点亮，因此比真正熄屏更耗电。")
             appendLine("· UI 自动化测试需要在真机/模拟器上执行；本报告不能替代真机验证。")
         }
+    }
+
+    fun isVolumeKeyServiceEnabled(): Boolean {
+        val enabled = try {
+            Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            )
+        } catch (t: Throwable) {
+            null
+        } ?: return false
+        val expected = ComponentName(context, VolumeKeyAccessibilityService::class.java)
+            .flattenToString()
+        return enabled.split(':').any { it.equals(expected, ignoreCase = true) }
+    }
+
+    fun openAccessibilitySettings() {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }.onFailure { AppLog.w("Cannot open accessibility settings", it) }
     }
 
     fun openBatteryOptimizationSettings() {

@@ -71,6 +71,8 @@ fun SettingsScreen(
     onChangePin: () -> Unit,
     onMaxSessionChange: (Int) -> Unit,
     onAutoRestoreChange: (Boolean) -> Unit,
+    onVolumeShortcutChange: (Boolean) -> Unit,
+    onOpenAccessibility: () -> Unit,
     onExperimentalAudioChange: (Boolean) -> Unit,
     onGlobalBrightnessChange: (Boolean) -> Unit,
     onOpenOverlayPermission: () -> Unit,
@@ -166,6 +168,32 @@ fun SettingsScreen(
                         subtitle = "应用重新启动或设备重启后，检查未完成的会话；仅当亮度仍是本应用写入的值时才恢复，不覆盖用户后来的修改。",
                         checked = settings.autoRestoreOnLaunch,
                         onCheckedChange = onAutoRestoreChange,
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+                SectionLabel("快捷操作")
+                SectionCard {
+                    SwitchRow(
+                        title = "音量键快捷开关",
+                        subtitle = "同时按音量加和音量减：空闲时开始模拟息屏，会话中结束模拟息屏。结束不验证 PIN，相当于物理紧急出口。",
+                        checked = settings.allowVolumeKeyShortcut,
+                        onCheckedChange = onVolumeShortcutChange,
+                    )
+                    HorizontalDivider(color = Line.copy(alpha = 0.6f))
+                    ClickableRow(
+                        title = "无障碍服务（应用外生效）",
+                        subtitle = "只监听音量加/减两个按键，不读取屏幕内容。开启后，应用在后台时也能用组合键开始会话。",
+                        value = if (deviceInfo.volumeAccessibilityEnabled) "已开启" else "去开启",
+                        valueColor = if (deviceInfo.volumeAccessibilityEnabled) Good else Warn,
+                        onClick = onOpenAccessibility,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "注意：组合键结束会话不需要 PIN。若你更看重密码保护，请关闭上面的开关，只保留应用内 PIN 退出。",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
                     )
                 }
 
@@ -291,7 +319,7 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "FakeScreen 只在“PIN 错误次数过多”时通过 Shizuku 执行系统电源键，让屏幕真正熄灭。密码验证、悬浮窗和核心会话都不依赖 Shizuku。",
+                        text = "FakeScreen 用 Shizuku 做两件事：①「Shizuku 真熄屏」模式启动时，通过 shell 用户服务执行系统电源键；② PIN 连续错误 10 次时真正关闭屏幕。密码验证、悬浮窗和核心会话都不依赖 Shizuku。",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 18.sp,
@@ -347,11 +375,15 @@ fun SettingsScreen(
             title = { Text("紧急退出方式") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("1. 下拉通知栏，点“紧急结束”。这是应用提供的官方无密码退出方式。")
+                    Text("1. 同时按音量加和音量减（需开启“音量键快捷开关”），可直接结束会话，不验证 PIN。")
                     Text("2. 长按电源键关机或重启。系统电源键始终有效，模拟息屏不会拦截。")
                     Text("3. 连接电脑执行：adb shell am force-stop com.fakescreen.app。下次打开应用时会自动检查并恢复亮度。")
                     Text("4. 等待“最长会话时长”到期，应用会自动退出并恢复亮度。")
-                    Text("5. PIN 连续错误 10 次时，若 Shizuku 可用，应用会调用系统电源键真正熄屏；不会阻止紧急通话。")
+                    Text("5. PIN 连续错误 10 次时，若 Shizuku 可用，应用会调用系统电源键真正熄屏。")
+                    Text(
+                        "通知栏不再提供免 PIN 的“紧急结束”，避免任何拿到通知栏的人都能绕过密码。",
+                        color = TextPrimary,
+                    )
                     Text(
                         "FakeScreen 不是系统锁屏，不会拦截来电、闹钟或紧急呼叫。",
                         color = TextPrimary,

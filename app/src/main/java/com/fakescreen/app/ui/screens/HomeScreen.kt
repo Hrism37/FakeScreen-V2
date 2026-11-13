@@ -151,7 +151,7 @@ fun HomeScreen(
                     }
                     Spacer(Modifier.height(5.dp))
                     Text(
-                        text = "在黑屏界面输入 PIN 即可退出。",
+                        text = "屏幕现在是纯黑；轻触黑屏才会显示 PIN 键盘，输入正确 PIN 退出。",
                         color = TextSecondary,
                         fontSize = 12.sp,
                     )
@@ -255,7 +255,7 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "屏幕保持点亮会增加耗电。忘记 PIN 时，可下拉通知栏点“紧急结束”，或等待最长会话计时器自动退出；系统电源键始终可用。",
+                    text = "屏幕保持点亮会增加耗电。忘记 PIN 时，可同时按音量加/减（需在设置开启）、长按电源键，或等待计时器；通知栏不再提供免 PIN 退出。",
                     color = TextSecondary,
                     fontSize = 12.sp,
                     lineHeight = 18.sp,

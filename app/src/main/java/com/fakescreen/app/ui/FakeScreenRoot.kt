@@ -172,6 +172,8 @@ fun FakeScreenRoot(vm: MainViewModel, activity: MainActivity) {
                 },
                 onMaxSessionChange = vm::setMaxSessionMinutes,
                 onAutoRestoreChange = vm::setAutoRestore,
+                onVolumeShortcutChange = vm::setAllowVolumeKeyShortcut,
+                onOpenAccessibility = vm::openAccessibilitySettings,
                 onExperimentalAudioChange = vm::setExperimentalAudio,
                 onGlobalBrightnessChange = vm::setAllowGlobalBrightness,
                 onOpenOverlayPermission = openOverlaySettings,

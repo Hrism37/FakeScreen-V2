@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -54,8 +55,25 @@ class FakeScreenService : Service() {
                 if (!manager.start(mode)) finishIfIdle()
             }
 
-            AppConstants.ACTION_EMERGENCY_STOP -> scope.launch {
-                manager.stop(ScreenSessionManager.StopReason.EMERGENCY)
+            AppConstants.ACTION_VOLUME_TOGGLE -> scope.launch {
+                if (manager.isActive()) {
+                    manager.stop(ScreenSessionManager.StopReason.VOLUME_SHORTCUT)
+                } else {
+                    val settings = appContainer.settingsRepository.settings.first()
+                    if (!settings.allowVolumeKeyShortcut) {
+                        finishIfIdle()
+                        return@launch
+                    }
+                    if (!manager.start(settings.defaultMode)) {
+                        NotificationHelper.notifyAlert(
+                            this@FakeScreenService,
+                            "无法开始模拟息屏",
+                            appContainer.sessionState.lastError.value
+                                ?: "请检查 PIN、悬浮窗权限和设备状态。",
+                        )
+                        finishIfIdle()
+                    }
+                }
             }
 
             AppConstants.ACTION_STOP_SESSION -> scope.launch {

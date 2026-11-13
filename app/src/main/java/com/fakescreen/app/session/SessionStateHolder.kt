@@ -66,6 +66,9 @@ class SessionStateHolder {
     }
 
     private fun describe(record: SessionRecord): String {
+        if (record.mode == ScreenMode.TRUE_OFF) {
+            return "Shizuku 真熄屏 · 屏幕已由系统电源键关闭"
+        }
         val parts = mutableListOf<String>()
         record.appliedWindowBrightness?.let {
             parts += "窗口亮度 ${(it * 100f).roundToInt()}%"

@@ -10,6 +10,7 @@ JVM 单元测试（`./gradlew :app:testDebugUnitTest`）：
 | `LockoutPolicyTest` | 前 4 次免费、5–10 次延迟递增、第 10 次触发隐私锁、剩余次数不为负 |
 | `RecoveryPlannerTest` | 正常恢复、用户改亮度/模式时不覆盖、超过 12 小时不恢复、仅窗口亮度无需写系统、关闭自动恢复、原始亮度未知时不写 |
 | `SessionRecordTest` | JSON 往返、窗口亮度 null 往返、损坏 JSON 拒绝、年龄不为负 |
+| `VolumeComboDetectorTest` | 音量加+减组合键的窗口判定、重复按键不重复触发、松开后重新武装 |
 
 执行命令：
 
@@ -26,9 +27,26 @@ JVM 单元测试（`./gradlew :app:testDebugUnitTest`）：
 | `LockoutPolicyTest` | 4 | 0 | 0 |
 | `RecoveryPlannerTest` | 7 | 0 | 0 |
 | `SessionRecordTest` | 4 | 0 | 0 |
-| **合计** | **20** | **0** | **0** |
+| `VolumeComboDetectorTest` | 5 | 0 | 0 |
+| **合计** | **25** | **0** | **0** |
 
 构建结果：`:app:assembleDebug`、`:app:assembleRelease` 均成功；测试报告位于 `app/build/reports/tests/testDebugUnitTest/`。
+
+## 真机验证（2026-11-13，2.0.0）
+
+> 本节针对 2.0.0。2.1.0 的黑屏优先、触摸显示 PIN、音量键快捷开关、Shizuku 真熄屏按用户要求停止真机测试，未安装验证。
+
+已在 HONOR ROD2-W69（Android 17 / API 37 / MagicOS_11.0.0.110）上完成：
+
+- release APK 安装、启动；
+- 首页、设置、PIN 设置界面、兼容性报告的渲染；
+- 设备型号与 MagicOS 版本识别；
+- Shizuku 未授权检测 → 授权申请 → “已就绪”；
+- 缺少悬浮窗权限时点击“开始模拟息屏”正确跳转系统授权页。
+
+未完成：悬浮窗授权后的会话、亮度、PIN 退出、通知、旋转、异常恢复。系统设置页由手机操控安全策略限制，只能由用户手动操作。
+
+完整记录见 [DEVICE_TEST_2026-11-13.md](DEVICE_TEST_2026-11-13.md)。
 
 ## 编译验证
 
@@ -48,7 +66,7 @@ JVM 单元测试（`./gradlew :app:testDebugUnitTest`）：
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-**本次开发环境无法安装 APK 到真机，因此未执行 connected 测试。**
+2.0.0 曾安装到真机，但自动化环境无法对系统安装/权限页执行操作；2.1.0 按用户要求停止测试。因此 connected 测试未执行。
 
 ## 真机手工测试清单
 

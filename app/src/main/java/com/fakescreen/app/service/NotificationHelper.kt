@@ -53,14 +53,6 @@ object NotificationHelper {
             ),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val emergencyIntent = PendingIntent.getBroadcast(
-            context,
-            101,
-            Intent(context, EmergencyStopReceiver::class.java).apply {
-                action = AppConstants.ACTION_EMERGENCY_FROM_NOTIFICATION
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
         return NotificationCompat.Builder(context, AppConstants.SESSION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("正在模拟息屏")
@@ -73,7 +65,6 @@ object NotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .addAction(0, "紧急结束", emergencyIntent)
             .build()
     }
 

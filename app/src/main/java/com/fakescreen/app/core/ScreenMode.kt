@@ -9,7 +9,8 @@ package com.fakescreen.app.core
  */
 enum class ScreenMode(val storageKey: String, val title: String, val shortTitle: String) {
     PURE_BLACK("pure_black", "纯黑覆盖", "OLED 纯黑"),
-    DIM("dim", "黑屏 + 低亮度", "LCD 低亮度");
+    DIM("dim", "黑屏 + 低亮度", "LCD 低亮度"),
+    TRUE_OFF("true_off", "Shizuku 真熄屏", "真熄屏");
 
     companion object {
         fun fromKey(key: String?): ScreenMode =

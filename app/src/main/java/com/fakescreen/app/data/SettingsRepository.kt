@@ -46,6 +46,7 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.EXPERIMENTAL_AUDIO] = next.experimentalAudioKeepAwake
             prefs[Keys.ALLOW_GLOBAL_BRIGHTNESS] = next.allowGlobalBrightnessFallback
             prefs[Keys.AUTO_RESTORE] = next.autoRestoreOnLaunch
+            prefs[Keys.VOLUME_SHORTCUT] = next.allowVolumeKeyShortcut
             prefs[Keys.SEEN_SAFETY_NOTICE] = next.hasSeenSafetyNotice
         }
     }
@@ -71,6 +72,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAutoRestore(enabled: Boolean) = update { it.copy(autoRestoreOnLaunch = enabled) }
 
+    suspend fun setAllowVolumeKeyShortcut(enabled: Boolean) = update {
+        it.copy(allowVolumeKeyShortcut = enabled)
+    }
+
     suspend fun markSafetyNoticeSeen() = update { it.copy(hasSeenSafetyNotice = true) }
 
     private fun Preferences.toSettings(): AppSettings = AppSettings(
@@ -83,6 +88,7 @@ class SettingsRepository(private val context: Context) {
         experimentalAudioKeepAwake = this[Keys.EXPERIMENTAL_AUDIO] ?: false,
         allowGlobalBrightnessFallback = this[Keys.ALLOW_GLOBAL_BRIGHTNESS] ?: false,
         autoRestoreOnLaunch = this[Keys.AUTO_RESTORE] ?: true,
+        allowVolumeKeyShortcut = this[Keys.VOLUME_SHORTCUT] ?: true,
         hasSeenSafetyNotice = this[Keys.SEEN_SAFETY_NOTICE] ?: false,
     )
 
@@ -92,6 +98,7 @@ class SettingsRepository(private val context: Context) {
         val EXPERIMENTAL_AUDIO = booleanPreferencesKey("experimental_audio_keep_awake")
         val ALLOW_GLOBAL_BRIGHTNESS = booleanPreferencesKey("allow_global_brightness")
         val AUTO_RESTORE = booleanPreferencesKey("auto_restore_on_launch")
+        val VOLUME_SHORTCUT = booleanPreferencesKey("allow_volume_key_shortcut")
         val SEEN_SAFETY_NOTICE = booleanPreferencesKey("seen_safety_notice")
     }
 }

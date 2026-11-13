@@ -12,6 +12,7 @@ FakeScreen 遵循最小权限原则。下表列出全部权限、用途、请求
 | `RECEIVE_BOOT_COMPLETED` | 普通 | 重启后检查未完成的会话并恢复亮度 | 安装时 | 重启后不会主动恢复，需打开一次 App |
 | `WAKE_LOCK` | 普通 | 仅供默认关闭的“实验性静音音频保活”使用 | 安装时 | 实验开关不可用，不影响主流程 |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | 普通 | 弹窗请求忽略电池优化（可选） | 用户点“电池优化”行时 | 不请求，仅提示手动设置 |
+| `BIND_ACCESSIBILITY_SERVICE` | 系统绑定权限（服务声明） | 音量加+减全局快捷开关；用户需在“无障碍”中手动开启 | 用户点“无障碍服务 → 去开启”时 | 组合键只在覆盖层获得焦点时有效，应用外不能开始会话 |
 
 ## 没有申请的权限
 
@@ -19,6 +20,17 @@ FakeScreen 遵循最小权限原则。下表列出全部权限、用途、请求
 - 不申请网络权限（`INTERNET`），应用完全离线。
 - 不申请读取联系人、存储、位置、相机、麦克风、无障碍服务。
 - 不使用 `QUERY_ALL_PACKAGES`；只通过 `<queries>` 声明 Shizuku 包名用于安装检测。
+
+## 无障碍服务说明
+
+`VolumeKeyAccessibilityService` 只申请 `flagRequestFilterKeyEvents`，声明 `canRetrieveWindowContent="false"`，因此：
+
+- 只接收音量加 / 音量减两个按键；
+- 不读取窗口内容、不读取文字、不监听触摸；
+- 只用于“同时按音量加和减”切换模拟息屏；
+- 用户可以随时在系统“无障碍”设置中关闭。
+
+关闭后核心功能（PIN、悬浮窗、亮度、真熄屏）都不受影响，只是无法在应用外按组合键开始会话。
 
 ## Shizuku 授权
 

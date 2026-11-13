@@ -12,5 +12,7 @@ data class AppSettings(
     val allowGlobalBrightnessFallback: Boolean = false,
     /** Restore brightness automatically when an old session is discovered after a crash/reboot. */
     val autoRestoreOnLaunch: Boolean = true,
+    /** Volume Up + Down toggles a session; the exit path intentionally bypasses the PIN. */
+    val allowVolumeKeyShortcut: Boolean = true,
     val hasSeenSafetyNotice: Boolean = false,
 )

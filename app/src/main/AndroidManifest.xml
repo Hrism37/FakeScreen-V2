@@ -54,7 +54,7 @@
             android:stopWithTask="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-initiated simulated screen-off overlay session that keeps a black, PIN-locked window visible until the user unlocks it or the safety timer expires." />
+                android:value="User-initiated simulated screen-off overlay session that keeps a black window visible until the user unlocks it or the safety timer expires." />
         </service>
 
         <service
@@ -72,10 +72,18 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".service.EmergencyStopReceiver"
-            android:enabled="true"
-            android:exported="false" />
+        <service
+            android:name=".service.VolumeKeyAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/volume_key_accessibility" />
+        </service>
 
         <!-- Shizuku's permission proxy. Optional enhancement only. -->
         <provider

@@ -1,6 +1,12 @@
 package com.fakescreen.app.overlay
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -22,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,21 +50,29 @@ import com.fakescreen.app.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 
 /**
- * The only content of the simulated screen-off overlay: an opaque black
- * background and a minimal adaptive PIN pad.
+ * The overlay content.
+ *
+ * Normal state is a completely black screen with no visible widgets. A tap
+ * reveals the PIN pad; it hides itself again after a period without input.
+ * The reveal state is reported to the session so that the window brightness can
+ * be raised temporarily in the low-brightness mode (otherwise the keypad would
+ * be invisible at 1%).
  */
 @Composable
 fun OverlayScreen(
     state: PinOverlayState,
     onSubmit: (String) -> Unit,
+    onRevealChanged: (Boolean) -> Unit = {},
 ) {
     var input by remember { mutableStateOf("") }
     var lastSubmitted by remember { mutableStateOf("") }
+    var revealed by remember { mutableStateOf(false) }
+    var interaction by remember { mutableIntStateOf(0) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     val lockedMillis = (state.lockedUntil - now).coerceAtLeast(0L)
     val locked = lockedMillis > 0L
-    val canType = !locked && !state.verifying && input.length < state.pinLength
+    val canType = revealed && !locked && !state.verifying && input.length < state.pinLength
 
     LaunchedEffect(state.lockedUntil) {
         while (true) {
@@ -67,17 +82,36 @@ fun OverlayScreen(
         }
     }
 
+    LaunchedEffect(revealed) {
+        onRevealChanged(revealed)
+    }
+
+    // Hide the keypad after 20 seconds without interaction, so the screen
+    // returns to a pure black state even if the user walks away mid-entry.
+    LaunchedEffect(revealed, interaction, state.clearTick, state.pinLength) {
+        if (!revealed) return@LaunchedEffect
+        delay(REVEAL_TIMEOUT_MS)
+        if (!state.verifying) {
+            input = ""
+            lastSubmitted = ""
+            revealed = false
+        }
+    }
+
     LaunchedEffect(state.clearTick) {
         input = ""
         lastSubmitted = ""
+        if (state.isError) interaction++
     }
 
     LaunchedEffect(state.pinLength) {
         if (input.length > state.pinLength) input = input.take(state.pinLength)
     }
 
-    LaunchedEffect(input, locked, state.verifying) {
-        if (input.length == state.pinLength && !locked && !state.verifying && input != lastSubmitted) {
+    LaunchedEffect(input, locked, state.verifying, revealed) {
+        if (revealed && input.length == state.pinLength && !locked &&
+            !state.verifying && input != lastSubmitted
+        ) {
             lastSubmitted = input
             onSubmit(input)
         }
@@ -88,87 +122,119 @@ fun OverlayScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 20.dp)
-        ) {
-            val wide = maxWidth >= 600.dp
-            val short = maxHeight < 520.dp
-            val buttonSize = when {
-                short -> 54.dp
-                wide -> 66.dp
-                else -> 72.dp
-            }
-            val gap = if (short) 9.dp else 14.dp
+        if (!revealed) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        interaction++
+                        revealed = true
+                    }
+            )
+        }
 
-            if (wide) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    InfoBlock(state = state, modifier = Modifier.width(280.dp))
-                    Spacer(Modifier.width(56.dp))
-                    PinBlock(
-                        state = state,
-                        input = input,
-                        lockedMillis = lockedMillis,
-                        locked = locked,
-                        canType = canType,
-                        buttonSize = buttonSize,
-                        gap = gap,
-                        compact = short,
-                        onDigit = { digit ->
-                            if (input.length < state.pinLength) input += digit
-                        },
-                        onBackspace = {
-                            if (input.isNotEmpty()) input = input.dropLast(1)
-                        },
-                    )
+        AnimatedVisibility(
+            visible = revealed,
+            enter = fadeIn(animationSpec = tween(160)),
+            exit = fadeOut(animationSpec = tween(160)),
+        ) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = 20.dp)
+            ) {
+                val wide = maxWidth >= 600.dp
+                val short = maxHeight < 520.dp
+                val buttonSize = when {
+                    short -> 54.dp
+                    wide -> 66.dp
+                    else -> 72.dp
                 }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Lock,
-                            contentDescription = null,
-                            tint = Color(0xFF4C5665),
-                            modifier = Modifier.size(12.dp),
-                        )
-                        Spacer(Modifier.width(7.dp))
-                        Text(
-                            text = "模拟息屏中",
-                            color = Color(0xFF56606E),
-                            fontSize = 11.sp,
-                            letterSpacing = 2.sp,
+                val gap = if (short) 9.dp else 14.dp
+
+                if (wide) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        InfoBlock(state = state, modifier = Modifier.width(280.dp))
+                        Spacer(Modifier.width(56.dp))
+                        PinBlock(
+                            state = state,
+                            input = input,
+                            lockedMillis = lockedMillis,
+                            locked = locked,
+                            canType = canType,
+                            buttonSize = buttonSize,
+                            gap = gap,
+                            compact = short,
+                            onDigit = { digit ->
+                                if (input.length < state.pinLength) {
+                                    input += digit
+                                    interaction++
+                                }
+                            },
+                            onBackspace = {
+                                if (input.isNotEmpty()) {
+                                    input = input.dropLast(1)
+                                    interaction++
+                                }
+                            },
                         )
                     }
-                    Spacer(Modifier.height(if (short) 14.dp else 30.dp))
-                    PinBlock(
-                        state = state,
-                        input = input,
-                        lockedMillis = lockedMillis,
-                        locked = locked,
-                        canType = canType,
-                        buttonSize = buttonSize,
-                        gap = gap,
-                        compact = short,
-                        onDigit = { digit ->
-                            if (input.length < state.pinLength) input += digit
-                        },
-                        onBackspace = {
-                            if (input.isNotEmpty()) input = input.dropLast(1)
-                        },
-                    )
-                    if (state.failures >= 2 && !wide) {
-                        Spacer(Modifier.height(18.dp))
-                        EmergencyHint()
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFF4C5665),
+                                modifier = Modifier.size(12.dp),
+                            )
+                            Spacer(Modifier.width(7.dp))
+                            Text(
+                                text = "输入 PIN 退出",
+                                color = Color(0xFF56606E),
+                                fontSize = 11.sp,
+                                letterSpacing = 1.5.sp,
+                            )
+                        }
+                        Spacer(Modifier.height(if (short) 14.dp else 28.dp))
+                        PinBlock(
+                            state = state,
+                            input = input,
+                            lockedMillis = lockedMillis,
+                            locked = locked,
+                            canType = canType,
+                            buttonSize = buttonSize,
+                            gap = gap,
+                            compact = short,
+                            onDigit = { digit ->
+                                if (input.length < state.pinLength) {
+                                    input += digit
+                                    interaction++
+                                }
+                            },
+                            onBackspace = {
+                                if (input.isNotEmpty()) {
+                                    input = input.dropLast(1)
+                                    interaction++
+                                }
+                            },
+                        )
+                        if (state.failures >= 2) {
+                            Spacer(Modifier.height(18.dp))
+                            EmergencyHint()
+                        }
                     }
                 }
             }
@@ -262,7 +328,7 @@ private fun InfoBlock(state: PinOverlayState, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(18.dp))
         Text(
-            text = "屏幕仍在点亮，应用不会真正关机。",
+            text = "再次轻触黑色区域可重新显示键盘；20 秒无操作自动隐藏。",
             color = Color(0xFF3F4855),
             fontSize = 11.sp,
             lineHeight = 17.sp,
@@ -277,7 +343,7 @@ private fun InfoBlock(state: PinOverlayState, modifier: Modifier = Modifier) {
 @Composable
 private fun EmergencyHint() {
     Text(
-        text = "忘记 PIN：下拉通知栏点“紧急结束”，或等待安全计时器自动退出。",
+        text = "忘记 PIN：同时按音量加和音量减可结束会话（需在设置中开启音量键快捷开关）。",
         color = Color(0xFF4A5361),
         fontSize = 10.sp,
         lineHeight = 15.sp,
@@ -285,3 +351,5 @@ private fun EmergencyHint() {
         maxLines = 2,
     )
 }
+
+private const val REVEAL_TIMEOUT_MS = 20_000L

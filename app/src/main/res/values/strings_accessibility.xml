@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_label">FakeScreen 音量键快捷开关</string>
+    <string name="accessibility_description">只监听音量加 / 音量减两个按键，用于“同时按音量加和减”开始或结束模拟息屏。不会读取屏幕内容，也不会收集任何文字。</string>
+</resources>
