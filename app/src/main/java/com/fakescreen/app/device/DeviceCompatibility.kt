@@ -143,9 +143,14 @@ class DeviceCompatibility(private val context: Context) {
         } catch (t: Throwable) {
             null
         } ?: return false
-        val expected = ComponentName(context, VolumeKeyAccessibilityService::class.java)
-            .flattenToString()
-        return enabled.split(':').any { it.equals(expected, ignoreCase = true) }
+        val expectedPackage = context.packageName
+        val expectedClass = VolumeKeyAccessibilityService::class.java.name
+        return enabled.split(':').any { entry ->
+            val component = ComponentName.unflattenFromString(entry)
+            component != null &&
+                component.packageName == expectedPackage &&
+                component.className == expectedClass
+        }
     }
 
     fun openAccessibilitySettings() {

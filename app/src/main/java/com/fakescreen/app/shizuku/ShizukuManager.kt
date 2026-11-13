@@ -7,6 +7,7 @@ import android.content.ServiceConnection
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.IBinder
+import android.os.PowerManager
 import com.fakescreen.app.BuildConfig
 import com.fakescreen.app.core.AppConstants
 import com.fakescreen.app.core.AppLog
@@ -176,6 +177,12 @@ class ShizukuManager(private val context: Context) {
      */
     suspend fun turnScreenOff(): Boolean {
         if (!isReady()) return false
+        // Never toggle the panel ON when it is already off.
+        val powerManager = appContext.getSystemService(PowerManager::class.java)
+        if (powerManager != null && !powerManager.isInteractive) {
+            AppLog.i("Screen already off, skip power key")
+            return true
+        }
         val service = userService ?: bindAndAwait()
         if (service == null) {
             AppLog.w("Shizuku user service unavailable")

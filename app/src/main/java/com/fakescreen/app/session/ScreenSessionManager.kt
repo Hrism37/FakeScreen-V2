@@ -111,6 +111,7 @@ class ScreenSessionManager(
             keepScreenOn = actualMode != ScreenMode.TRUE_OFF,
             onOverlayLost = { onOverlayLost() },
             onVolumeShortcut = { maybeVolumeStop() },
+            volumeShortcutEnabled = volumeShortcutEnabled,
             onPinVisibilityChanged = { visible ->
                 if (actualMode == ScreenMode.DIM) {
                     overlay.updateBrightness(
@@ -182,6 +183,7 @@ class ScreenSessionManager(
             return false
         }
 
+        volumeShortcutEnabled = settings.allowVolumeKeyShortcut
         val pinLength = container.passwordManager.pinLength()
         record = saved
         pinState.value = PinOverlayState(pinLength = pinLength, message = "模拟息屏会话已恢复")
@@ -192,6 +194,7 @@ class ScreenSessionManager(
             keepScreenOn = saved.mode != ScreenMode.TRUE_OFF,
             onOverlayLost = { onOverlayLost() },
             onVolumeShortcut = { maybeVolumeStop() },
+            volumeShortcutEnabled = volumeShortcutEnabled,
             onPinVisibilityChanged = { visible ->
                 if (saved.mode == ScreenMode.DIM) {
                     overlay.updateBrightness(

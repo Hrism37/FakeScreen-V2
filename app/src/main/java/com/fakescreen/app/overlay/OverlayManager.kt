@@ -62,6 +62,7 @@ class OverlayManager(private val context: Context) {
         onOverlayLost: () -> Unit,
         onPinVisibilityChanged: (Boolean) -> Unit = {},
         onVolumeShortcut: () -> Unit = {},
+        volumeShortcutEnabled: Boolean = true,
     ): Boolean {
         if (isShowing) return true
         if (!Settings.canDrawOverlays(appContext)) {
@@ -106,7 +107,7 @@ class OverlayManager(private val context: Context) {
                                 action = event.action,
                                 now = event.eventTime,
                             )
-                            if (triggered) {
+                            if (triggered && volumeShortcutEnabled) {
                                 onVolumeShortcut()
                                 true
                             } else {
