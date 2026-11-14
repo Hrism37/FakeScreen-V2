@@ -58,7 +58,7 @@ class ScreenSessionManager(
     private var stopping = false
     private var started = false
     private var privacyLockRunning = false
-    private var volumeShortcutEnabled = true
+    private var volumeStopEnabled = true
 
     fun isActive(): Boolean = started && record != null
 
@@ -76,7 +76,7 @@ class ScreenSessionManager(
 
         val settings = container.settingsRepository.settings.first()
         val pinLength = container.passwordManager.pinLength()
-        volumeShortcutEnabled = settings.allowVolumeKeyShortcut
+        volumeStopEnabled = settings.volumeShortcutStopEnabled
         val snapshot = container.brightnessManager.readSnapshot()
 
         var actualMode = mode
@@ -111,7 +111,7 @@ class ScreenSessionManager(
             keepScreenOn = actualMode != ScreenMode.TRUE_OFF,
             onOverlayLost = { onOverlayLost() },
             onVolumeShortcut = { maybeVolumeStop() },
-            volumeShortcutEnabled = volumeShortcutEnabled,
+            volumeShortcutEnabled = volumeStopEnabled,
             onPinVisibilityChanged = { visible ->
                 if (actualMode == ScreenMode.DIM) {
                     overlay.updateBrightness(
@@ -133,7 +133,7 @@ class ScreenSessionManager(
         }
 
         record?.let { container.sessionState.setActive(it) }
-        scheduleAutoStop(settings.maxSessionMinutes)
+        scheduleAutoStop(settings)
 
         if (downgraded) {
             NotificationHelper.notifyAlert(
@@ -173,17 +173,23 @@ class ScreenSessionManager(
         val age = System.currentTimeMillis() - saved.startedAt
         val settings = container.settingsRepository.settings.first()
 
-        if (age > AppConstants.STALE_SESSION_MILLIS ||
-            age > settings.maxSessionMinutes * 60_000L + AppConstants.SESSION_GRACE_MILLIS ||
-            !container.passwordManager.hasPin()
-        ) {
+        val noLimit = settings.noMaxSessionDuration || settings.maxSessionMinutes <= 0
+        val maxAge = if (noLimit) {
+            AppConstants.STALE_SESSION_MILLIS
+        } else {
+            minOf(
+                AppConstants.STALE_SESSION_MILLIS,
+                settings.maxSessionMinutes * 60_000L + AppConstants.SESSION_GRACE_MILLIS,
+            )
+        }
+        if (age > maxAge || !container.passwordManager.hasPin()) {
             AppLog.w("Refusing to resume stale session (age=${age}ms)")
             restoreIfPossible(saved)
             container.sessionStore.clear()
             return false
         }
 
-        volumeShortcutEnabled = settings.allowVolumeKeyShortcut
+        volumeStopEnabled = settings.volumeShortcutStopEnabled
         val pinLength = container.passwordManager.pinLength()
         record = saved
         pinState.value = PinOverlayState(pinLength = pinLength, message = "模拟息屏会话已恢复")
@@ -194,7 +200,7 @@ class ScreenSessionManager(
             keepScreenOn = saved.mode != ScreenMode.TRUE_OFF,
             onOverlayLost = { onOverlayLost() },
             onVolumeShortcut = { maybeVolumeStop() },
-            volumeShortcutEnabled = volumeShortcutEnabled,
+            volumeShortcutEnabled = volumeStopEnabled,
             onPinVisibilityChanged = { visible ->
                 if (saved.mode == ScreenMode.DIM) {
                     overlay.updateBrightness(
@@ -214,9 +220,11 @@ class ScreenSessionManager(
         started = true
         keepAwake.start(settings.experimentalAudioKeepAwake)
         container.sessionState.setActive(saved)
-        val remainingMillis =
-            settings.maxSessionMinutes * 60_000L - (System.currentTimeMillis() - saved.startedAt)
-        scheduleAutoStopMillis(remainingMillis)
+        if (!noLimit) {
+            val remainingMillis =
+                settings.maxSessionMinutes * 60_000L - (System.currentTimeMillis() - saved.startedAt)
+            scheduleAutoStopMillis(remainingMillis)
+        }
         AppLog.i("Session resumed id=${saved.id}")
         return true
     }
@@ -336,7 +344,7 @@ class ScreenSessionManager(
     }
 
     private fun maybeVolumeStop() {
-        if (!started || stopping || !volumeShortcutEnabled) return
+        if (!started || stopping || !volumeStopEnabled) return
         scope.launch { stop(StopReason.VOLUME_SHORTCUT) }
     }
 
@@ -437,8 +445,14 @@ class ScreenSessionManager(
         }
     }
 
-    private fun scheduleAutoStop(minutes: Int) {
-        scheduleAutoStopMillis(minutes * 60_000L)
+    private fun scheduleAutoStop(settings: AppSettings) {
+        if (settings.noMaxSessionDuration || settings.maxSessionMinutes <= 0) {
+            autoStopJob?.cancel()
+            autoStopJob = null
+            AppLog.i("Automatic session timeout disabled")
+            return
+        }
+        scheduleAutoStopMillis(settings.maxSessionMinutes * 60_000L)
     }
 
     private fun scheduleAutoStopMillis(millis: Long) {

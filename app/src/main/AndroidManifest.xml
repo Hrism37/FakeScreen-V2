@@ -72,6 +72,13 @@
             </intent-filter>
         </receiver>
 
+        <activity
+            android:name=".service.QuickToggleActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <service
             android:name=".service.VolumeKeyAccessibilityService"
             android:exported="true"

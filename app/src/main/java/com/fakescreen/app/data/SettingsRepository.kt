@@ -39,14 +39,13 @@ class SettingsRepository(private val context: Context) {
         context.settingsDataStore.edit { prefs ->
             val next = transform(prefs.toSettings())
             prefs[Keys.DEFAULT_MODE] = next.defaultMode.storageKey
-            prefs[Keys.MAX_SESSION_MINUTES] = next.maxSessionMinutes.coerceIn(
-                AppConstants.MIN_SESSION_MINUTES,
-                AppConstants.MAX_SESSION_MINUTES,
-            )
+            prefs[Keys.MAX_SESSION_MINUTES] = next.maxSessionMinutes.coerceAtLeast(0)
+            prefs[Keys.NO_MAX_SESSION] = next.noMaxSessionDuration
             prefs[Keys.EXPERIMENTAL_AUDIO] = next.experimentalAudioKeepAwake
             prefs[Keys.ALLOW_GLOBAL_BRIGHTNESS] = next.allowGlobalBrightnessFallback
             prefs[Keys.AUTO_RESTORE] = next.autoRestoreOnLaunch
-            prefs[Keys.VOLUME_SHORTCUT] = next.allowVolumeKeyShortcut
+            prefs[Keys.VOLUME_START] = next.volumeShortcutStartEnabled
+            prefs[Keys.VOLUME_STOP] = next.volumeShortcutStopEnabled
             prefs[Keys.SEEN_SAFETY_NOTICE] = next.hasSeenSafetyNotice
         }
     }
@@ -54,12 +53,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDefaultMode(mode: ScreenMode) = update { it.copy(defaultMode = mode) }
 
     suspend fun setMaxSessionMinutes(minutes: Int) = update {
-        it.copy(
-            maxSessionMinutes = minutes.coerceIn(
-                AppConstants.MIN_SESSION_MINUTES,
-                AppConstants.MAX_SESSION_MINUTES,
-            )
-        )
+        it.copy(maxSessionMinutes = minutes.coerceAtLeast(0))
+    }
+
+    suspend fun setNoMaxSessionDuration(enabled: Boolean) = update {
+        it.copy(noMaxSessionDuration = enabled)
     }
 
     suspend fun setExperimentalAudio(enabled: Boolean) = update {
@@ -72,8 +70,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAutoRestore(enabled: Boolean) = update { it.copy(autoRestoreOnLaunch = enabled) }
 
-    suspend fun setAllowVolumeKeyShortcut(enabled: Boolean) = update {
-        it.copy(allowVolumeKeyShortcut = enabled)
+    suspend fun setVolumeShortcutStart(enabled: Boolean) = update {
+        it.copy(volumeShortcutStartEnabled = enabled)
+    }
+
+    suspend fun setVolumeShortcutStop(enabled: Boolean) = update {
+        it.copy(volumeShortcutStopEnabled = enabled)
     }
 
     suspend fun markSafetyNoticeSeen() = update { it.copy(hasSeenSafetyNotice = true) }
@@ -81,14 +83,15 @@ class SettingsRepository(private val context: Context) {
     private fun Preferences.toSettings(): AppSettings = AppSettings(
         defaultMode = ScreenMode.fromKey(this[Keys.DEFAULT_MODE]),
         maxSessionMinutes = (this[Keys.MAX_SESSION_MINUTES]
-            ?: AppConstants.DEFAULT_MAX_SESSION_MINUTES).coerceIn(
-            AppConstants.MIN_SESSION_MINUTES,
-            AppConstants.MAX_SESSION_MINUTES,
-        ),
+            ?: AppConstants.DEFAULT_MAX_SESSION_MINUTES).coerceAtLeast(0),
+        noMaxSessionDuration = this[Keys.NO_MAX_SESSION] ?: false,
         experimentalAudioKeepAwake = this[Keys.EXPERIMENTAL_AUDIO] ?: false,
         allowGlobalBrightnessFallback = this[Keys.ALLOW_GLOBAL_BRIGHTNESS] ?: false,
         autoRestoreOnLaunch = this[Keys.AUTO_RESTORE] ?: true,
-        allowVolumeKeyShortcut = this[Keys.VOLUME_SHORTCUT] ?: true,
+        volumeShortcutStartEnabled = this[Keys.VOLUME_START]
+            ?: this[Keys.LEGACY_VOLUME_SHORTCUT] ?: true,
+        volumeShortcutStopEnabled = this[Keys.VOLUME_STOP]
+            ?: this[Keys.LEGACY_VOLUME_SHORTCUT] ?: true,
         hasSeenSafetyNotice = this[Keys.SEEN_SAFETY_NOTICE] ?: false,
     )
 
@@ -98,7 +101,11 @@ class SettingsRepository(private val context: Context) {
         val EXPERIMENTAL_AUDIO = booleanPreferencesKey("experimental_audio_keep_awake")
         val ALLOW_GLOBAL_BRIGHTNESS = booleanPreferencesKey("allow_global_brightness")
         val AUTO_RESTORE = booleanPreferencesKey("auto_restore_on_launch")
-        val VOLUME_SHORTCUT = booleanPreferencesKey("allow_volume_key_shortcut")
+        val NO_MAX_SESSION = booleanPreferencesKey("no_max_session_duration")
+        val VOLUME_START = booleanPreferencesKey("volume_shortcut_start")
+        val VOLUME_STOP = booleanPreferencesKey("volume_shortcut_stop")
+        /** Read-only migration from 2.1.0. */
+        val LEGACY_VOLUME_SHORTCUT = booleanPreferencesKey("allow_volume_key_shortcut")
         val SEEN_SAFETY_NOTICE = booleanPreferencesKey("seen_safety_notice")
     }
 }

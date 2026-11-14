@@ -255,7 +255,7 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "屏幕保持点亮会增加耗电。忘记 PIN 时，可同时按音量加/减（需在设置开启）、长按电源键，或等待计时器；通知栏不再提供免 PIN 退出。",
+                    text = "屏幕保持点亮会增加耗电。忘记 PIN 时，可同时按音量加/减（需开启音量键关闭）、长按电源键，或等待计时器；通知栏不再提供免 PIN 退出。",
                     color = TextSecondary,
                     fontSize = 12.sp,
                     lineHeight = 18.sp,

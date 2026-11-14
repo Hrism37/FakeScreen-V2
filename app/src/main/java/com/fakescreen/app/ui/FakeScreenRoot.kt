@@ -171,8 +171,10 @@ fun FakeScreenRoot(vm: MainViewModel, activity: MainActivity) {
                     screen = SCREEN_PIN
                 },
                 onMaxSessionChange = vm::setMaxSessionMinutes,
+                onNoMaxSessionChange = vm::setNoMaxSessionDuration,
                 onAutoRestoreChange = vm::setAutoRestore,
-                onVolumeShortcutChange = vm::setAllowVolumeKeyShortcut,
+                onVolumeShortcutStartChange = vm::setVolumeShortcutStart,
+                onVolumeShortcutStopChange = vm::setVolumeShortcutStop,
                 onOpenAccessibility = vm::openAccessibilitySettings,
                 onExperimentalAudioChange = vm::setExperimentalAudio,
                 onGlobalBrightnessChange = vm::setAllowGlobalBrightness,

@@ -131,9 +131,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun setAllowVolumeKeyShortcut(enabled: Boolean) {
+    fun setNoMaxSessionDuration(enabled: Boolean) {
         viewModelScope.launch {
-            container.settingsRepository.setAllowVolumeKeyShortcut(enabled)
+            container.settingsRepository.setNoMaxSessionDuration(enabled)
+            refreshReport()
+        }
+    }
+
+    fun setVolumeShortcutStart(enabled: Boolean) {
+        viewModelScope.launch {
+            container.settingsRepository.setVolumeShortcutStart(enabled)
+            refreshReport()
+        }
+    }
+
+    fun setVolumeShortcutStop(enabled: Boolean) {
+        viewModelScope.launch {
+            container.settingsRepository.setVolumeShortcutStop(enabled)
             refreshReport()
         }
     }

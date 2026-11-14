@@ -6,7 +6,7 @@ package com.fakescreen.app.core
  * Kept free of Android APIs so the timing logic can be unit tested. The caller
  * passes key codes, actions and a monotonic timestamp.
  */
-class VolumeComboDetector(private val windowMillis: Long = 400L) {
+class VolumeComboDetector(private val windowMillis: Long = 600L) {
 
     private var upDownAt = 0L
     private var downDownAt = 0L

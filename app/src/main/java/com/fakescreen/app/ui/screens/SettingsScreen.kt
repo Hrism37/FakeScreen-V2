@@ -16,26 +16,29 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fakescreen.app.BuildConfig
@@ -57,7 +60,6 @@ import com.fakescreen.app.ui.theme.Panel
 import com.fakescreen.app.ui.theme.TextPrimary
 import com.fakescreen.app.ui.theme.TextSecondary
 import com.fakescreen.app.ui.theme.Warn
-import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
@@ -70,8 +72,10 @@ fun SettingsScreen(
     onOpenModes: () -> Unit,
     onChangePin: () -> Unit,
     onMaxSessionChange: (Int) -> Unit,
+    onNoMaxSessionChange: (Boolean) -> Unit,
     onAutoRestoreChange: (Boolean) -> Unit,
-    onVolumeShortcutChange: (Boolean) -> Unit,
+    onVolumeShortcutStartChange: (Boolean) -> Unit,
+    onVolumeShortcutStopChange: (Boolean) -> Unit,
     onOpenAccessibility: () -> Unit,
     onExperimentalAudioChange: (Boolean) -> Unit,
     onGlobalBrightnessChange: (Boolean) -> Unit,
@@ -84,9 +88,21 @@ fun SettingsScreen(
     onOpenCompatibility: () -> Unit,
 ) {
     var showEmergency by remember { mutableStateOf(false) }
-    var sliderValue by remember { mutableFloatStateOf(settings.maxSessionMinutes.toFloat()) }
+    var timeoutText by remember { mutableStateOf(settings.maxSessionMinutes.toString()) }
+    var timeoutFocused by remember { mutableStateOf(false) }
+
+    fun commitTimeout() {
+        val minutes = timeoutText.toLongOrNull()
+            ?.coerceIn(0L, Int.MAX_VALUE.toLong())
+            ?.toInt() ?: 0
+        timeoutText = minutes.toString()
+        onMaxSessionChange(minutes)
+    }
+
     LaunchedEffect(settings.maxSessionMinutes) {
-        sliderValue = settings.maxSessionMinutes.toFloat()
+        if (!timeoutFocused) {
+            timeoutText = settings.maxSessionMinutes.toString()
+        }
     }
 
     Box(
@@ -103,7 +119,13 @@ fun SettingsScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
         ) {
-            TopBar(title = "设置", onBack = onBack)
+            TopBar(
+                title = "设置",
+                onBack = {
+                    commitTimeout()
+                    onBack()
+                },
+            )
             Column(Modifier.padding(horizontal = 20.dp)) {
 
                 SectionLabel("会话")
@@ -124,42 +146,55 @@ fun SettingsScreen(
                     )
                     HorizontalDivider(color = Line.copy(alpha = 0.6f))
                     Column(Modifier.padding(vertical = 12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "最长会话时长",
-                                color = TextPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(
-                                text = "${sliderValue.roundToInt()} 分钟",
-                                color = Accent,
-                                fontSize = 13.sp,
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Slider(
-                            value = sliderValue,
-                            onValueChange = { sliderValue = it },
-                            valueRange = AppConstants.MIN_SESSION_MINUTES.toFloat()..
-                                AppConstants.MAX_SESSION_MINUTES.toFloat(),
-                            steps = (AppConstants.MAX_SESSION_MINUTES -
-                                AppConstants.MIN_SESSION_MINUTES) / 5 - 1,
-                            onValueChangeFinished = {
-                                onMaxSessionChange(sliderValue.roundToInt())
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = Accent,
-                                activeTrackColor = Accent,
-                                inactiveTrackColor = Color(0xFF1E2530),
-                            ),
-                        )
                         Text(
-                            text = "达到时长后自动退出并恢复亮度，防止忘记退出。",
+                            text = "最长会话时长",
+                            color = TextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = timeoutText,
+                            onValueChange = { raw ->
+                                timeoutText = raw.filter { it.isDigit() }.take(10)
+                            },
+                            enabled = !settings.noMaxSessionDuration,
+                            singleLine = true,
+                            label = { Text("分钟") },
+                            placeholder = { Text("0 表示不自动结束") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = { commitTimeout() }
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { state ->
+                                    if (!state.isFocused && timeoutFocused) {
+                                        commitTimeout()
+                                    }
+                                    timeoutFocused = state.isFocused
+                                },
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (settings.noMaxSessionDuration) {
+                                "已关闭自动结束，会话持续到手动退出。"
+                            } else {
+                                "单位分钟，最小 0，没有最大值；0 也表示不自动结束。"
+                            },
                             color = TextSecondary,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        SwitchRow(
+                            title = "无最大会话时长",
+                            subtitle = "打开后忽略上面的分钟数，不会自动结束会话。",
+                            checked = settings.noMaxSessionDuration,
+                            onCheckedChange = onNoMaxSessionChange,
                         )
                     }
                     HorizontalDivider(color = Line.copy(alpha = 0.6f))
@@ -175,10 +210,17 @@ fun SettingsScreen(
                 SectionLabel("快捷操作")
                 SectionCard {
                     SwitchRow(
-                        title = "音量键快捷开关",
-                        subtitle = "同时按音量加和音量减：空闲时开始模拟息屏，会话中结束模拟息屏。结束不验证 PIN，相当于物理紧急出口。",
-                        checked = settings.allowVolumeKeyShortcut,
-                        onCheckedChange = onVolumeShortcutChange,
+                        title = "音量键开启",
+                        subtitle = "空闲时同时按音量加和音量减，开始模拟息屏。应用在后台时生效需要开启无障碍服务。",
+                        checked = settings.volumeShortcutStartEnabled,
+                        onCheckedChange = onVolumeShortcutStartChange,
+                    )
+                    HorizontalDivider(color = Line.copy(alpha = 0.6f))
+                    SwitchRow(
+                        title = "音量键关闭",
+                        subtitle = "会话中同时按音量加和音量减，结束模拟息屏。关闭动作不验证 PIN。",
+                        checked = settings.volumeShortcutStopEnabled,
+                        onCheckedChange = onVolumeShortcutStopChange,
                     )
                     HorizontalDivider(color = Line.copy(alpha = 0.6f))
                     ClickableRow(
@@ -190,7 +232,7 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "注意：组合键结束会话不需要 PIN。若你更看重密码保护，请关闭上面的开关，只保留应用内 PIN 退出。",
+                        text = "开启和关闭是独立开关，但都使用“音量加 + 音量减”组合键。关闭动作不需要 PIN，若更看重密码保护，请关闭“音量键关闭”。",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 18.sp,
@@ -375,7 +417,7 @@ fun SettingsScreen(
             title = { Text("紧急退出方式") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("1. 同时按音量加和音量减（需开启“音量键快捷开关”），可直接结束会话，不验证 PIN。")
+                    Text("1. 同时按音量加和音量减（需开启“音量键关闭”），可直接结束会话，不验证 PIN。")
                     Text("2. 长按电源键关机或重启。系统电源键始终有效，模拟息屏不会拦截。")
                     Text("3. 连接电脑执行：adb shell am force-stop com.fakescreen.app。下次打开应用时会自动检查并恢复亮度。")
                     Text("4. 等待“最长会话时长”到期，应用会自动退出并恢复亮度。")

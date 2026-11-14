@@ -56,11 +56,15 @@ class FakeScreenService : Service() {
             }
 
             AppConstants.ACTION_VOLUME_TOGGLE -> scope.launch {
+                val settings = appContainer.settingsRepository.settings.first()
                 if (manager.isActive()) {
+                    if (!settings.volumeShortcutStopEnabled) {
+                        finishIfIdle()
+                        return@launch
+                    }
                     manager.stop(ScreenSessionManager.StopReason.VOLUME_SHORTCUT)
                 } else {
-                    val settings = appContainer.settingsRepository.settings.first()
-                    if (!settings.allowVolumeKeyShortcut) {
+                    if (!settings.volumeShortcutStartEnabled) {
                         finishIfIdle()
                         return@launch
                     }

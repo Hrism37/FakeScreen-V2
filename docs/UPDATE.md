@@ -13,7 +13,7 @@ FakeScreen 的 PIN、设置和未完成会话记录都保存在应用私有目�
 ## 正确更新步骤
 
 1. 保留同一份签名密钥：`release.keystore` + `keystore.properties`。
-2. 修改代码后把 `app/build.gradle.kts` 的 `versionCode` 加 1（当前为 3），`versionName` 同步改。
+2. 修改代码后把 `app/build.gradle.kts` 的 `versionCode` 加 1（当前为 4），`versionName` 同步改。
 3. 构建新的 release APK：
    ```bash
    ./gradlew :app:assembleRelease

@@ -31,41 +31,76 @@ class VolumeKeyAccessibilityService : AccessibilityService() {
     private val detector = VolumeComboDetector()
 
     @Volatile
-    private var shortcutEnabled = true
+    private var startEnabled = true
+
+    @Volatile
+    private var stopEnabled = true
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        serviceInfo = AccessibilityServiceInfo().apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            flags = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
-            notificationTimeout = 100
+        // Do NOT replace serviceInfo with a new instance: that drops the
+        // canRequestFilterKeyEvents capability declared in XML and the service
+        // silently stops receiving volume keys. Mutate the existing object.
+        serviceInfo = serviceInfo?.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         }
         scope.launch {
             appContainer.settingsRepository.settings.collectLatest {
-                shortcutEnabled = it.allowVolumeKeyShortcut
+                startEnabled = it.volumeShortcutStartEnabled
+                stopEnabled = it.volumeShortcutStopEnabled
             }
         }
         AppLog.i("Volume key accessibility service connected")
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (!shortcutEnabled || event.repeatCount > 0) return false
+        if (event.repeatCount > 0) return false
+        if (event.keyCode != KeyEvent.KEYCODE_VOLUME_UP &&
+            event.keyCode != KeyEvent.KEYCODE_VOLUME_DOWN
+        ) {
+            return false
+        }
+
         val triggered = detector.onKey(event.keyCode, event.action, event.eventTime)
         if (!triggered) return false
 
-        val intent = Intent(this, FakeScreenService::class.java).apply {
+        val sessionActive = appContainer.sessionState.state.value.active
+        val allowed = if (sessionActive) stopEnabled else startEnabled
+        if (!allowed) {
+            AppLog.i("Volume chord ignored (active=$sessionActive, allowed=false)")
+            return false
+        }
+
+        AppLog.i("Volume chord detected (active=$sessionActive), toggling")
+        return launchToggle()
+    }
+
+    private fun launchToggle(): Boolean {
+        val serviceIntent = Intent(this, FakeScreenService::class.java).apply {
             action = AppConstants.ACTION_VOLUME_TOGGLE
         }
+        try {
+            ContextCompat.startForegroundService(this, serviceIntent)
+            return true
+        } catch (t: Throwable) {
+            AppLog.w("Foreground service start blocked, trying trampoline activity", t)
+        }
+
+        // Accessibility services are allowed to start activities. The
+        // trampoline has no UI and immediately starts the session service,
+        // so the shortcut still works when background FGS start is restricted.
         return try {
-            ContextCompat.startForegroundService(this, intent)
+            startActivity(
+                Intent(this, QuickToggleActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            )
             true
         } catch (t: Throwable) {
             AppLog.e("Unable to toggle session from accessibility service", t)
             NotificationHelper.notifyAlert(
                 this,
                 "音量键快捷操作不可用",
-                "系统限制了从后台启动前台服务，请先打开 FakeScreen 再试。",
+                "系统阻止了后台启动，请先打开 FakeScreen 再试。",
             )
             false
         }

@@ -6,7 +6,7 @@ FakeScreen 是一个在真实 Android 设备上运行的“模拟息屏”工具
 - UI：Jetpack Compose + Material 3（深色）
 - 架构：MVVM + Repository，服务端会话状态机
 - 最低系统：Android 8.0（API 26），targetSdk 35
-- 版本：2.1.0 (versionCode 3)
+- 版本：2.1.1 (versionCode 4)
 
 ## 功能
 
@@ -19,7 +19,7 @@ FakeScreen 是一个在真实 Android 设备上运行的“模拟息屏”工具
 | 低亮度模式下显示 PIN 时临时提高窗口亮度 | 已实现 |
 | PIN 设置、二次确认、修改、错误锁定 | 已实现 |
 | PBKDF2-HMAC-SHA256 + Android Keystore 加密存储 | 已实现 |
-| 音量加 + 音量减快捷开关（可选无障碍全局监听） | 已实现 |
+| 音量加 + 音量减：开启/关闭两个独立开关 | 已实现 |
 | 前台服务 + 常驻通知（不再提供免 PIN 的紧急结束） | 已实现 |
 | 悬浮窗丢失、进程被杀、重启后的恢复 | 已实现 |
 | 覆盖安装升级保留 PIN、设置与会话文件 | 已实现 |
@@ -48,7 +48,7 @@ FakeScreen 是一个在真实 Android 设备上运行的“模拟息屏”工具
 1. 进入前读取 `SCREEN_BRIGHTNESS` / `SCREEN_BRIGHTNESS_MODE`，连同会话 UUID、时间戳、是否修改全局亮度写入 `SharedPreferences`（`commit()` 同步落盘），**先持久化再改亮度**。
 2. 正常退出：先恢复亮度，再移除黑色窗口，最后清理会话记录。
 3. 异常退出：下次启动 App、服务被系统重启、或设备重启后，`RecoveryManager` 检查记录：
-   - 超过 12 小时 → 视为过期，只清理记录，不写亮度；
+   - 超过 12 小时（无最大会话时长时）或超过配置时长 + 5 分钟 → 视为过期，只清理记录，不写亮度；
    - 当前亮度 ≠ 本应用写入的值 → 说明用户后来改过，**不覆盖**；
    - 亮度模式也被改过 → 同样不覆盖；
    - 恢复失败（例如 `WRITE_SETTINGS` 被撤销）→ 保留记录，授权后下次启动重试；
@@ -69,13 +69,13 @@ FakeScreen 是一个在真实 Android 设备上运行的“模拟息屏”工具
 
 忘记 PIN 时：
 
-1. **同时按音量加和音量减**：空闲时开始模拟息屏，会话中结束会话。默认开启，可在设置中关闭；它不验证 PIN，是物理按键层面的紧急出口。要在应用外（后台）使用，需要开启无障碍服务；会话中覆盖层自己也能捕获组合键。
+1. **同时按音量加和音量减**：空闲时开始模拟息屏，会话中结束会话。设置里“音量键开启”和“音量键关闭”是两个独立开关；关闭动作不验证 PIN，是物理按键层面的紧急出口。要在应用外（后台）使用，需要开启无障碍服务；会话中覆盖层自己也能捕获组合键。
 2. 长按电源键关机/重启（系统始终有效）。
 3. `adb shell am force-stop com.fakescreen.app`，下次打开 App 会自动恢复亮度。
-4. 等待“最长会话时长”（默认 30 分钟，可设 5–120 分钟）自动退出。
+4. 等待“最长会话时长”自动退出；可填任意分钟数（最小 0，无上限），也可以打开“无最大会话时长”。0 与“无最大”都表示不自动结束。
 5. PIN 连续错误 10 次时，若 Shizuku 可用，应用会真正熄屏。
 
-音量组合键不需要 PIN 是有意的取舍：它比通知栏按钮更难被旁观者触发，并且必须双手同时按住。如果你希望完全只靠 PIN，请在设置 → 快捷操作中关闭该开关。
+音量组合键的“关闭”不需要 PIN 是有意的取舍：它比通知栏按钮更难被旁观者触发，并且必须同时按住两个键。如果你希望完全只靠 PIN，请在设置 → 快捷操作中关闭“音量键关闭”开关。
 
 ## Shizuku（可选）
 
@@ -136,7 +136,7 @@ app/src/main/java/com/fakescreen/app/
 - `RecoveryPlannerTest`：7 项通过。
 - `SessionRecordTest`：4 项通过。
 - `VolumeComboDetectorTest`：5 项通过。
-- **合计 25 项，0 失败，0 跳过**；`assembleDebug` 与 `assembleRelease` 均构建成功（2.1.0）。
+- **合计 25 项，0 失败，0 跳过**；`assembleDebug` 与 `assembleRelease` 均构建成功（2.1.0 / 2.1.1）。
 
 真机（2026-11-13，HONOR ROD2-W69 / MagicOS_11.0.0 / Android 17，**针对 2.0.0**）：
 
@@ -145,7 +145,7 @@ app/src/main/java/com/fakescreen/app/
 - 未授予悬浮窗权限时，开始按钮正确跳转系统授权页；
 - 悬浮窗、亮度、PIN 退出、通知、旋转、异常恢复仍需悬浮窗授权后的人工测试。
 
-2.1.0（黑屏优先、触摸显示 PIN、音量键快捷开关、Shizuku 真熄屏、移除通知栏紧急结束）已完成构建与单元测试，但**按用户要求停止真机测试**，未在设备上安装验证。
+2.1.0 / 2.1.1（黑屏优先、触摸显示 PIN、音量键开启/关闭、Shizuku 真熄屏、数字时长输入、无障碍音量键修复）已完成构建与单元测试，但**按用户要求停止真机测试**，未在设备上安装验证。
 
 详见 [docs/DEVICE_TEST_2026-11-13.md](docs/DEVICE_TEST_2026-11-13.md) 与 [docs/TESTING.md](docs/TESTING.md)。
 
@@ -164,7 +164,7 @@ app/src/main/java/com/fakescreen/app/
 - 屏幕旋转：`DisplayManager` 监听 + Compose 自适应；
 - 状态栏/导航栏：`WindowInsetsController` 隐藏，可下滑临时呼出。
 
-2.0.0 已在荣耀平板（HONOR ROD2-W69 / MagicOS_11.0.0 / Android 17）上完成安装、UI 与 Shizuku 授权的部分验证；2.1.0 尚未真机验证。具体未验证项与预期风险见 [docs/MAGICOS11.md](docs/MAGICOS11.md)。
+2.0.0 已在荣耀平板（HONOR ROD2-W69 / MagicOS_11.0.0 / Android 17）上完成安装、UI 与 Shizuku 授权的部分验证；2.1.0 / 2.1.1 尚未真机验证。具体未验证项与预期风险见 [docs/MAGICOS11.md](docs/MAGICOS11.md)。
 
 ## 已知问题
 

@@ -23,8 +23,8 @@ object AppConstants {
     const val PIN_REQUEST_CODE = 4104
 
     const val DEFAULT_MAX_SESSION_MINUTES = 30
-    const val MIN_SESSION_MINUTES = 5
-    const val MAX_SESSION_MINUTES = 120
+    /** 0 means "no automatic stop"; the UI additionally offers a no-limit switch. */
+    const val MIN_SESSION_MINUTES = 0
 
     /** A session older than this is considered stale and is never "restored". */
     const val STALE_SESSION_MILLIS = 12L * 60L * 60L * 1000L
